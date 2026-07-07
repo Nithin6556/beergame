@@ -1,0 +1,55 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+hub-debug.log*
+
+# Dependencies
+node_modules/
+/functions/node_modules/
+
+# Build and Output
+dist/
+dist-ssr/
+/functions/lib/
+*.tsbuildinfo
+.eslintcache
+
+# Firebase
+.firebase/
+.runtimeconfig.json
+.secret.local
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.claude/
+
+# System Files
+Thumbs.db
+desktop.ini

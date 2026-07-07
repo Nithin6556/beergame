@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function instructorDoc() {
+      return get(/databases/$(database)/documents/instructors/$(request.auth.uid));
+    }
+
+    function hasInstructorDoc() {
+      return signedIn() && exists(/databases/$(database)/documents/instructors/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return hasInstructorDoc()
+        && instructorDoc().data.role == "admin"
+        && instructorDoc().data.status == "approved";
+    }
+
+    function isApprovedInstructor() {
+      return hasInstructorDoc()
+        && instructorDoc().data.status == "approved"
+        && (instructorDoc().data.role == "admin" || instructorDoc().data.role == "instructor");
+    }
+
+    function canCreateGame() {
+      return isApprovedInstructor();
+    }
+
+    function canAccessOwnedGame(gameData) {
+      return isAdmin()
+        || (isApprovedInstructor() && gameData.ownerInstructorId == request.auth.uid);
+    }
+
+    function gameDoc(gameId) {
+      return get(/databases/$(database)/documents/games/$(gameId));
+    }
+
+    function gameExists(gameId) {
+      return exists(/databases/$(database)/documents/games/$(gameId));
+    }
+
+    function isPublicGameReadable(gameData) {
+      return gameData.ownerInstructorId is string
+        && gameData.status in ["lobby", "in_progress", "ended"]
+        && gameData.expiresAt is timestamp
+        && gameData.expiresAt > request.time;
+    }
+
+    function canReadGame(gameId) {
+      return gameExists(gameId)
+        && (canAccessOwnedGame(gameDoc(gameId).data) || isPublicGameReadable(gameDoc(gameId).data));
+    }
+
+    match /instructors/{uid} {
+      allow get: if signedIn() && (isAdmin() || request.auth.uid == uid);
+      allow list: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /games/{gameId} {
+      allow get: if canReadGame(gameId);
+      allow list: if isAdmin()
+        || (isApprovedInstructor() && resource.data.ownerInstructorId == request.auth.uid);
+
+      allow create: if canCreateGame()
+        && request.resource.data.ownerInstructorId is string
+        && (isAdmin() || request.resource.data.ownerInstructorId == request.auth.uid);
+
+      allow update, delete: if canAccessOwnedGame(resource.data);
+
+      match /players/{playerId} {
+        allow get, list: if canReadGame(gameId);
+        allow create, update, delete: if canAccessOwnedGame(gameDoc(gameId).data);
+      }
+
+      match /teams/{teamId} {
+        allow get, list: if canReadGame(gameId);
+        allow create, update, delete: if canAccessOwnedGame(gameDoc(gameId).data);
+      }
+
+      match /playerNames/{nameId} {
+        allow get, list: if canAccessOwnedGame(gameDoc(gameId).data);
+        allow create, update, delete: if canAccessOwnedGame(gameDoc(gameId).data);
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

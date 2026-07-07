@@ -1,0 +1,137 @@
+Original prompt: Examine the user interface of the admin and instructor dashboards; improve the ui/ux experience.
+
+## Completed
+- Added a shared dashboard design system in `src/dashboard.css` with reusable layout, panel, toolbar, metric, chip, table, alert, and responsive utility classes.
+- Updated `src/main.tsx` to load `dashboard.css` globally.
+- Updated `src/index.css` base typography, colors, button behavior, and control defaults to align with the refreshed dashboard visual language.
+- Removed dead Vite starter styles from `src/App.css`.
+- Refactored `src/App.tsx` approved-user area to support admin-only dashboard tabs (`Instructor Console` + `Admin Review`) with a clearer identity bar and role chip.
+- Rebuilt `src/components/AdminDashboard.tsx` into Overview / Pending Reviews / Instructor Directory sections with:
+  - Metrics cards
+  - Pending application cards + approve/reject actions + busy feedback
+  - Directory search/filter/sort controls
+  - Revoke confirmation guard
+  - Inline `aria-live` alerts
+- Reworked `src/components/HostLobby.tsx` into Session Hub / Active Session / Lobby Presence / In-Progress Teams sections with:
+  - Session search + status filter
+  - Better session cards and destructive delete confirmation copy
+  - Labeled and explained config controls
+  - Config toggles (`extraOrderDelay`, `displayUpstreamBackorders`)
+  - Dirty-state detection for Save settings
+  - Presence summary chips and offline row highlighting
+  - Player remove confirmation and inline action feedback
+  - Team progress cards
+- Completed lint cleanup pass across existing violations:
+  - `src/logic/robotOrders.ts`: removed `any` cast in robot order merge logic.
+  - `functions/src/index.ts`: removed unnecessary escaped quotes and replaced remaining `any` casts with typed `Record<string, unknown>` handling.
+  - `src/components/PlayerView.tsx`: removed `any` casts, added typed parsing helpers, replaced impure Date initializer, and adjusted strict effect lint handling for animation state transitions.
+- Improved the `Instructor / Admin Access` experience in `src/components/AuthPortal.tsx`:
+  - Replaced basic stacked controls with a structured two-panel layout (guidance + active form area).
+  - Added accessible mode tabs for `Sign in`, `Register`, and `Reset password`.
+  - Added explicit labels, autocomplete hints, and helper text for key fields.
+  - Kept existing authentication and application-submission behavior unchanged.
+  - Standardized success/error messaging with inline alert styling and `aria-live`.
+- Added auth-specific styles in `src/dashboard.css` (`auth-portal`, `auth-layout`, `auth-intro`, `auth-form-panel`, etc.) with responsive behavior for smaller screens.
+- Added a new landing-page CTA in `src/App.tsx`: `Request Instructor Access`.
+  - Clicking it opens the Instructor/Admin view directly in registration mode.
+  - Existing `Instructor / Admin` button now explicitly opens sign-in mode.
+  - `Join Game` remains on the left of the landing action row; `Instructor / Admin` remains on the right.
+- Updated `src/components/AuthPortal.tsx` to accept `initialMode` so parent navigation can deep-link to `register` or `login` flow.
+- Refreshed the home/landing page UI in `src/App.tsx` + `src/dashboard.css`:
+  - Stronger heading/subtitle hierarchy and clearer app positioning.
+  - Added role guidance cards (`Students / Players`, `Instructors / Admin`) to reduce entry confusion.
+  - Reworked CTA row into a responsive grid with preserved order intent:
+    - Left: `Join Game`
+    - Middle: `Request Instructor Access`
+    - Right: `Instructor / Admin`
+  - Added dedicated landing styles (`landing-hero`, `landing-role-grid`, `landing-actions`, etc.) for desktop + mobile behavior.
+- Updated landing page CTA placement per latest UX direction:
+  - Removed the `Supply Chain Classroom Simulation` badge.
+  - Moved `Request Instructor Access` to the upper-right area of the hero card.
+  - Placed `Join Game` as a prominent centered CTA under `Students / Players`.
+  - Placed `Instructor / Admin` as a prominent centered CTA under `Instructors / Admin`.
+  - Simplified/updated landing CSS to support the new CTA structure (`landing-topbar`, `landing-role-action`, etc.).
+- Performed a full UI/UX overhaul of the player `Join a Game` screen in `src/components/PlayerJoin.tsx`:
+  - Replaced minimal stacked inputs with a two-panel flow (`join-intro` + `join-form-panel`).
+  - Added clearer step guidance and onboarding copy.
+  - Added labeled fields and improved code entry behavior (uppercase, trimmed, alphanumeric, max length).
+  - Added live session/name preview before submit.
+  - Promoted primary submit action and standardized error feedback via alert styles.
+- Added join-screen styling in `src/dashboard.css` (`join-portal`, `join-layout`, `join-step`, `join-preview`, etc.) with responsive stacking on narrow screens.
+- Fixed player disconnect overlay false positives in `src/components/PlayerView.tsx`:
+  - Removed the aggressive stale-timestamp disconnect check.
+  - Disconnect now triggers only on real failure signals: browser offline or repeated heartbeat failures.
+  - Kept heartbeat-based recovery logic so the overlay clears after successful reconnect.
+- Restored detailed in-progress monitoring in `src/components/HostLobby.tsx`:
+  - Brought back role-by-role team overview during active games (role, assigned player, human/robot type, submitted/waiting state).
+  - Added explicit waiting/submitted summary chips per team so stuck decisions are visible at a glance.
+  - Reintroduced `Kick to robot` action for each human role, including transactional updates that:
+    - switch the team stage to Beer GPT,
+    - clear that role's pending/submitted order flags for the current round,
+    - detach the kicked player from their team/role assignment.
+  - Added waiting-row highlight style in `src/dashboard.css` (`row-waiting`) to surface undecided human roles.
+- Refined in-progress team monitoring for high player counts (50-100 players):
+  - Replaced expanded per-team cards with a dense single table where each team is one row.
+  - Added dedicated role columns (`Retailer`, `Wholesaler`, `Distributor`, `Factory`) to mirror prior compact overview.
+  - Kept per-role human/robot and submitted/waiting indicators in compact inline badges.
+  - Kept `Kick to robot` controls as inline compact actions within each role cell.
+  - Added compact table styling (`teams-compact-table`, `team-role-*`, `btn-kick-compact`) to preserve readability while maximizing visible teams.
+
+## Verification
+- `npm run build`: pass
+- `npm run lint`: pass
+
+## TODO / Suggestions
+- Optionally add component-level tests (or Playwright checks) for:
+  - Admin search/filter/sort behavior
+  - Session hub filtering
+  - Active session dirty-state Save button behavior
+- Player board stability tweak:
+  - Updated `src/components/PlayerView.tsx` so shipment truck lanes always reserve vertical space and only toggle truck visibility.
+  - This prevents the main board card from resizing during shipment animation phases after an order is submitted.
+  - Validation run: `npm run lint` passed.
+  - Playwright validation is currently blocked in this environment because the `playwright` package is missing for `web_game_playwright_client.js`.
+
+## Completed (Endgame Analytics + Export)
+- Added `src/logic/endgameAnalytics.ts` with shared pure computations for:
+  - order series extraction
+  - population variance / standard deviation
+  - bullwhip (`var(factory orders) / var(retailer orders)`, `N/A` when retailer variance is zero)
+  - end-of-session robot count
+  - leaderboard + per-role std-dev row builders
+- Added reusable chart components:
+  - `src/components/charts/TeamOrdersLineChart.tsx`
+  - `src/components/charts/TeamRoleStdDevGroupedBarChart.tsx`
+  - `src/components/charts/chartConstants.ts` for shared role labels/colors
+- Updated `src/components/PlayerView.tsx` to reuse `TeamOrdersLineChart` on the player game-over screen.
+- Extended `src/components/HostLobby.tsx` with a new `status === "ended"` analytics section containing:
+  - leaderboard table (`Rank`, `Team`, `Total cost`, `# Robo players`, `Bullwhip`)
+  - per-team order line charts
+  - grouped std-dev bar chart (retailer/wholesaler/distributor/factory per team)
+  - `Download complete data` action
+  - `Export leaderboard + charts (PDF)` action
+- Added CSV ZIP export utility in `src/utils/sessionCsvExport.ts`:
+  - exports `session.csv`, `leaderboard.csv`, `team_role_stddev.csv`, `team_orders.csv`, `players.csv`
+  - includes CSV escaping + formula-injection hardening
+  - excludes sensitive token/hash fields
+- Added one-click PDF export utility in `src/utils/exportPdf.ts` using `html2canvas` + `jspdf`, including multi-page A4 handling.
+- Extended `src/dashboard.css` with endgame/report/chart styling and responsive behavior.
+- Added dependencies in `package.json`:
+  - `fflate`
+  - `html2canvas`
+  - `jspdf`
+  - lockfile updated via `npm install`.
+
+## Verification (Endgame Analytics + Export)
+- `npm run lint`: pass
+- `npm run build`: pass
+
+## TODO / Suggestions (Endgame Analytics + Export)
+- Add automated tests for `src/logic/endgameAnalytics.ts` (bullwhip edge case, zero-variance handling, stable leaderboard ordering).
+- Add an integration test that ends a session and verifies:
+  - endgame panel visibility
+  - leaderboard rows populated
+  - CSV ZIP includes all expected files
+  - PDF export triggers download flow
+- Optional UX tweak:
+  - hide export action buttons from the PDF capture area if you want cleaner report pages without controls.
